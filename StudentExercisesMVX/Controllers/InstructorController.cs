@@ -158,17 +158,44 @@ namespace StudentExercisesMVX.Controllers
         // GET: Instructor/Edit/5
         public ActionResult Edit(int id)
         {
-            return View();
+            Instructor instructor = GetSingleInstructor(id);
+            List<Cohort> cohorts = GetAllCohorts();
+
+            var viewModel = new InstructorEditViewModel(instructor, cohorts);
+            return View(viewModel);
         }
 
         // POST: Instructor/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public ActionResult Edit(int id, IFormCollection collection)
+        public ActionResult Edit(int id, InstructorEditViewModel model)
         {
             try
             {
-                // TODO: Add update logic here
+                using (SqlConnection conn = Connection)
+                {
+                    conn.Open();
+                    using (SqlCommand cmd = conn.CreateCommand())
+                    {
+                        cmd.CommandText = @"UPDATE Instructor
+                                            SET
+                                                FirstName = @firstName,
+                                                LastName = @lastName,
+                                                SlackHandle = @slackHandle,
+                                                Specialty = @specialty,
+                                                CohortId = @cohortId
+                                            WHERE Id = @id";
+
+                        cmd.Parameters.AddWithValue("@firstName", model.Instructor.FirstName);
+                        cmd.Parameters.AddWithValue("@lastName", model.Instructor.LastName);
+                        cmd.Parameters.AddWithValue("@slackHandle", model.Instructor.SlackHandle);
+                        cmd.Parameters.AddWithValue("@specialty", model.Instructor.Specialty);
+                        cmd.Parameters.AddWithValue("@cohortId", model.Instructor.CohortId);
+                        cmd.Parameters.AddWithValue("@id", id);
+
+                        cmd.ExecuteNonQuery();
+                    }
+                }
 
                 return RedirectToAction(nameof(Index));
             }
@@ -225,6 +252,40 @@ namespace StudentExercisesMVX.Controllers
 
                     return cohorts;
                 }
+            }
+        }
+
+        private Instructor GetSingleInstructor(int id)
+        {
+            using (SqlConnection conn = Connection)
+            {
+                Instructor instructor = null;
+                conn.Open();
+                using (SqlCommand cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = @"
+                        SELECT Id, FirstName, LastName, SlackHandle, Specialty, CohortId
+                        FROM Instructor
+                        WHERE Id = @id
+                    ";
+
+                    cmd.Parameters.Add(new SqlParameter("@id", id));
+                    SqlDataReader reader = cmd.ExecuteReader();
+
+                    if (reader.Read())
+                    {
+                        instructor = new Instructor()
+                        {
+                            Id = reader.GetInt32(reader.GetOrdinal("Id")),
+                            FirstName = reader.GetString(reader.GetOrdinal("FirstName")),
+                            LastName = reader.GetString(reader.GetOrdinal("LastName")),
+                            SlackHandle = reader.GetString(reader.GetOrdinal("SlackHandle")),
+                            Specialty = reader.GetString(reader.GetOrdinal("Specialty")),
+                            CohortId = reader.GetInt32(reader.GetOrdinal("CohortId")),
+                        };
+                    }
+                }
+                return instructor;
             }
         }
     }
