@@ -208,7 +208,8 @@ namespace StudentExercisesMVX.Controllers
         // GET: Instructor/Delete/5
         public ActionResult Delete(int id)
         {
-            return View();
+            Instructor instructor = GetSingleInstructor(id);
+            return View(instructor);
         }
 
         // POST: Instructor/Delete/5
@@ -218,7 +219,21 @@ namespace StudentExercisesMVX.Controllers
         {
             try
             {
-                // TODO: Add delete logic here
+                using (SqlConnection conn = Connection)
+                {
+                    conn.Open();
+                    using (SqlCommand cmd = conn.CreateCommand())
+                    {
+                        cmd.CommandText = @"DELETE FROM StudentExercise
+                                            WHERE InstructorId = @id;
+                                            DELETE FROM Instructor
+                                            WHERE Id = @id";
+
+                        cmd.Parameters.AddWithValue("@id", id);
+
+                        cmd.ExecuteNonQuery();
+                    }
+                }
 
                 return RedirectToAction(nameof(Index));
             }
