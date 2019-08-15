@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Extensions.Configuration;
 using StudentExercises.Models.ViewModels;
 using StudentExercisesMVX.Models;
+using StudentExercisesMVX.Models.ViewModels;
 
 namespace StudentExercisesMVX.Controllers
 {
@@ -70,7 +71,7 @@ namespace StudentExercisesMVX.Controllers
             using (SqlConnection conn = Connection)
             {
                 conn.Open();
-                using(SqlCommand cmd = conn.CreateCommand())
+                using (SqlCommand cmd = conn.CreateCommand())
                 {
                     cmd.CommandText = @"
                         SELECT Id, FirstName, LastName, SlackHandle, CohortId
@@ -160,17 +161,42 @@ namespace StudentExercisesMVX.Controllers
         // GET: Student/Edit/5
         public ActionResult Edit(int id)
         {
-            return View();
+            Student student = GetSingleStudent(id);
+            List<Cohort> cohorts = GetAllCohorts();
+
+            var viewModel = new StudentEditViewModel(student, cohorts);
+            return View(viewModel);
         }
 
         // POST: Student/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public ActionResult Edit(int id, IFormCollection collection)
+        public ActionResult Edit(int id, StudentEditViewModel model)
         {
             try
             {
-                // TODO: Add update logic here
+                using (SqlConnection conn = Connection)
+                {
+                    conn.Open();
+                    using (SqlCommand cmd = conn.CreateCommand())
+                    {
+                        cmd.CommandText = @"UPDATE Student
+                                            SET
+                                                FirstName = @firstName,
+                                                LastName = @lastName,
+                                                SlackHandle = @slackHandle,
+                                                CohortId = @cohortId
+                                            WHERE Id = @id";
+
+                        cmd.Parameters.AddWithValue("@firstName", model.Student.FirstName);
+                        cmd.Parameters.AddWithValue("@lastName", model.Student.LastName);
+                        cmd.Parameters.AddWithValue("@slackHandle", model.Student.SlackHandle);
+                        cmd.Parameters.AddWithValue("@cohortId", model.Student.CohortId);
+                        cmd.Parameters.AddWithValue("@id", id);
+
+                        cmd.ExecuteNonQuery();
+                    }
+                }
 
                 return RedirectToAction(nameof(Index));
             }
@@ -183,7 +209,8 @@ namespace StudentExercisesMVX.Controllers
         // GET: Student/Delete/5
         public ActionResult Delete(int id)
         {
-            return View();
+            Student student = GetSingleStudent(id);
+            return View(student);
         }
 
         // POST: Student/Delete/5
@@ -193,7 +220,19 @@ namespace StudentExercisesMVX.Controllers
         {
             try
             {
-                // TODO: Add delete logic here
+                using (SqlConnection conn = Connection)
+                {
+                    conn.Open();
+                    using (SqlCommand cmd = conn.CreateCommand())
+                    {
+                        cmd.CommandText = @"DELETE FROM Student
+                                            WHERE Id = @id";
+
+                        cmd.Parameters.AddWithValue("@id", id);
+
+                        cmd.ExecuteNonQuery();
+                    }
+                }
 
                 return RedirectToAction(nameof(Index));
             }
@@ -227,6 +266,39 @@ namespace StudentExercisesMVX.Controllers
 
                     return cohorts;
                 }
+            }
+        }
+
+        private Student GetSingleStudent(int id)
+        {
+            using (SqlConnection conn = Connection)
+            {
+                Student student = null;
+                conn.Open();
+                using (SqlCommand cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = @"
+                        SELECT Id, FirstName, LastName, SlackHandle, CohortId
+                        FROM Student
+                        WHERE Id = @id
+                    ";
+
+                    cmd.Parameters.Add(new SqlParameter("@id", id));
+                    SqlDataReader reader = cmd.ExecuteReader();
+
+                    if (reader.Read())
+                    {
+                        student = new Student()
+                        {
+                            StudentId = reader.GetInt32(reader.GetOrdinal("Id")),
+                            FirstName = reader.GetString(reader.GetOrdinal("FirstName")),
+                            LastName = reader.GetString(reader.GetOrdinal("LastName")),
+                            SlackHandle = reader.GetString(reader.GetOrdinal("SlackHandle")),
+                            CohortId = reader.GetInt32(reader.GetOrdinal("CohortId")),
+                        };
+                    }
+                }
+                return student;
             }
         }
     }
